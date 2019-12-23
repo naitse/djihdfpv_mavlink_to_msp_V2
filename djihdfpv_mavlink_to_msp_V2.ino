@@ -15,6 +15,8 @@
 #define USE_PITCH_ROLL_ANGLE_FOR_DISTANCE_AND_DIRECTION_TO_HOME             //comment out to disable
 //#define IMPERIAL_UNITS                                                    //Altitude in feet, distance to home in miles.
 #define VEHICLE_TYPE                                                0       //0==Plane, 1==Copter  used for flight modes
+#define M_PIf       3.14159265358979323846f
+#define RAD    (M_PIf / 180.0f)
 
 #include <checksum.h>
 #include <mavlink.h>
@@ -280,39 +282,27 @@ void mavl_receive()
             }
             break;
           
-          case MAVLINK_MSG_ID_VFR_HUD:  // VFR_HUD
+          case MAVLINK_MSG_ID_ATTITUDE:  // ATTITUDE
           {
-            mavlink_vfr_hud_t vfr_hud;
-            mavlink_msg_vfr_hud_decode(&msg, &vfr_hud);
-
-            airspeed = vfr_hud.airspeed; //float
-            groundspeed = vfr_hud.groundspeed; //float
-            
+            mavlink_attitude_t attitude;
+            mavlink_msg_attitude_decode(&msg, &attitude);
+            // this is a calculation based on INAV code, I dont know if it is correct.
+            heading = (((attitude.yaw) * 10.0f) / RAD);
             }
             break;
-
-          case MAVLINK_MSG_ID_GLOBAL_POSITION_INT:  // MAVLINK_MSG_ID_GLOBAL_POSITION_INT
-          {
-            mavlink_global_position_int_t global_position_int;
-            mavlink_msg_global_position_int_decode(&msg, &global_position_int);
-            
-            heading = global_position_int.hdg;
-            altitude_mav = (uint16_t)(global_position_int.relative_alt / 1000); //int32_t in milimeters -> converted to meters
-            gps_lat = global_position_int.lat;
-            gps_lon = global_position_int.lon;
-            gps_alt = global_position_int.alt;
-            
-           }
-           break;
-
+          
           case MAVLINK_MSG_ID_GPS_RAW_INT:  // MAVLINK_MSG_ID_GPS_RAW_INT
           {
             mavlink_gps_raw_int_t gps_raw_int;
             mavlink_msg_gps_raw_int_decode(&msg, &gps_raw_int);
-            
+          
             fix_type = gps_raw_int.fix_type;
             numSat = gps_raw_int.satellites_visible;
-                
+            gps_lat = gps_raw_int.lat;
+            gps_lon = gps_raw_int.lon;
+            gps_alt = gps_raw_int.alt;
+            altitude_mav = (uint16_t)(gps_raw_int.alt / 1000);
+            groundspeed = gps_raw_int.vel / 100.0f;
            }
            break;
 
@@ -922,7 +912,6 @@ void GPS_calculateDistanceAndDirectionToHome(void)
      }
 }
 
-#define M_PIf       3.14159265358979323846f
 #define sinPolyCoef3 -1.666568107e-1f
 #define sinPolyCoef5  8.312366210e-3f
 #define sinPolyCoef7 -1.849218155e-4f
